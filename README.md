@@ -1,6 +1,10 @@
 # Lifting Line Method 
 
-Welcome to the Lifting Line Method repository! This project focuses on exploring and analyzing various aspects of aerodynamics of blades and horizontal-axis wind turbines using the Lifting Line theory.
+Welcome to the Lifting Line Method repository! This project focuses on exploring and analyzing various aspects of the aerodynamics of blades and horizontal-axis wind turbines using the Lifting Line theory.
+
+![Airflow Simulation Animation](Images/ThreeBlades2.png)
+
+
 ## Table of Contents
 
 - [Project Overview](#project-overview)
