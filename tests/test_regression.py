@@ -1,7 +1,11 @@
 """Regression test: the vectorised solver reproduces the original (2023) loop-based solver.
 
 The reference was produced by the original code for the 3-blade rotor of Examples.ipynb
-(22 panels per blade, 10 wake steps). Run with:  python -m unittest discover tests
+(22 panels per blade, 10 wake steps), on macOS. Results agree to ~1e-15 on the machine that
+made the reference; across platforms (other BLAS and libm) they differ by up to ~3e-7 relative,
+far below the solver's own convergence tolerance (0.5 % change in circulation), so the test
+allows 1e-6. A change to the algorithm shows up well above that.
+Run with:  python -m unittest discover tests
 """
 import os
 import unittest
@@ -27,7 +31,7 @@ class RegressionTest(unittest.TestCase):
             os.chdir(cwd)
         ref = np.load(ROOT / "tests" / "data" / "reference_3blades_ndt10.npz")
         for key in ref.files:
-            np.testing.assert_allclose(getattr(sol, key), ref[key], rtol=1e-10, atol=1e-12, err_msg=key)
+            np.testing.assert_allclose(getattr(sol, key), ref[key], rtol=1e-6, atol=1e-9, err_msg=key)
 
 
 if __name__ == "__main__":
