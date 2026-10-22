@@ -1,0 +1,20 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+title: "Lifting-line solver"
+type: software
+license: Apache-2.0
+abstract: "Lifting-line solver for horizontal-axis wind-turbine rotors in Python: horseshoe vortices on the blades, a prescribed helical wake and airfoil polars give spanwise loads, induction factors, thrust and power."
+keywords:
+  - "lifting-line theory"
+  - "wind-turbine aerodynamics"
+  - "horizontal-axis wind turbine"
+  - "vortex methods"
+  - "helical wake"
+  - "Biot-Savart law"
+  - "potential flow"
+  - "Python"
+authors:
+  - family-names: Martins
+    given-names: Flavio A. C.
+    orcid: https://orcid.org/0000-0002-1374-5760
+repository-code: "https://github.com/EngFlavioMartins/lifting-line-solver"

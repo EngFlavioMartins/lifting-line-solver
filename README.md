@@ -1,56 +1,69 @@
-# Lifting Line Method 
+# Lifting-line solver
 
-Welcome to the Lifting Line Method repository! This project focuses on exploring and analyzing various aspects of the aerodynamics of blades and horizontal-axis wind turbines using the Lifting Line theory.
+<p align="center">
+  <a href="https://github.com/EngFlavioMartins/lifting-line-solver/actions/workflows/tests.yml"><img src="https://github.com/EngFlavioMartins/lifting-line-solver/actions/workflows/tests.yml/badge.svg" alt="Regression tests"></a>
+  <a href="https://www.python.org/"><img src="https://img.shields.io/badge/python-3.10%2B-3776AB?logo=python&logoColor=white" alt="python: 3.10+"></a>
+  <a href="https://github.com/EngFlavioMartins/lifting-line-solver/blob/HEAD/LICENSE"><img src="https://img.shields.io/badge/license-Apache%202.0-2E7D32" alt="license: Apache 2.0"></a>
+</p>
 
-![Airflow Simulation Animation](Images/ThreeBlades2.png)
+**Wind-turbine rotors and their helical wakes, with the lifting-line method.**
 
+<p align="center"><img src="docs/assets/animation.webp" width="560" alt="A three-bladed rotor turning in its helical wake: tip vortices in red, root vortices in teal"></p>
 
-## Table of Contents
+Each blade is a row of horseshoe vortices whose trailing legs follow a helical wake; the bound circulation is iterated against airfoil polars until the loads agree. It gives the spanwise loads, induction factors and the thrust and power coefficients of a rotor in about a second. The derivation is in [Resources/Report.pdf](Resources/Report.pdf).
 
-- [Project Overview](#project-overview)
-- [Features](#features)
-- [Installation](#installation)
-- [Usage](#usage)
-- [Contributions](#contributions)
-- [License](#license)
+## Run it
 
-## Project Overview
+```bash
+git clone https://github.com/EngFlavioMartins/lifting-line-solver.git
+cd lifting-line-solver
+python run.py
+```
 
-In this project, we delve into the fascinating world of classical (potential-theory-based) aerodynamics, studying the principles that govern the behavior of fluids (especially air) when interacting with solid objects. Our aim is to apply these principles to different scenarios and objects, ultimately improving our understanding of how aerodynamics influences design, efficiency, and performance of horizontal-axis wind turbines.
+`run.py` solves a 50 m three-bladed rotor at tip-speed ratio 8 (CT = 0.64, CP = 0.46) and plots the spanwise circulation and induction to `outputs/three_blade_rotor.png`. The first time, it installs what it needs into a private `.venv` folder (a minute or so); after that it starts at once. All you need is Python 3.10 or newer.
 
-![Airflow Simulation Animation](Images/SingleBlade2.png)
+<details>
+<summary>Prefer conda?</summary>
 
-## Features
+```bash
+conda env create -f environment.yml
+conda activate lifting-line-solver
+python examples/three_blade_rotor.py
+```
 
-- **Simulations**: We provide a set of simulations tools for designing and modelling blades or rotors, allowing you to visualize airflow around different objects and explore aerodynamic phenomena.
-- **Data Analysis**: The project includes tools for analyzing the resulting numerical data related to aerodynamics, helping us draw insights from real-world tests.
-- **Educational Resources**: You'll find educational articles, diagrams, and explanations that break down the complex aerodynamic concepts of the classical potential flow theory into understandable components in `./Resources/Report.pdf`.
+</details>
 
-![Airflow Simulation Animation](Images/LLM_Solutions.png)
+**Next:** The notebook [Examples.ipynb](Examples.ipynb) covers single blades, tip-speed-ratio sweeps and wake convergence. `python -m pytest tests` checks the solver against the original code's results.
 
-## Installation
+## Figure and animation
 
-1. Clone the repository using: `git clone https://github.com/PRIDEmartins/Lifting_Line_Method.git`
-2. Navigate to the project directory: `cd Lifting_Line_Method`
-3. Install the required dependencies: `pip install -r requirements.txt`
+<p align="center"><img src="docs/assets/render.webp" width="560" alt="Three-bladed rotor with brushed-metal blades and its helical wake: red tip vortices and teal root vortices"></p>
 
-## Usage
+The rotor of the example and its wake, drawn to two rotor radii downstream. Each filament is coloured by the circulation it trails, in units of Γ₀ = πU²/(N<sub>b</sub>Ω): red tip vortices, teal root vortices.
 
-1. Navigate to the specific simulation or analysis you're interested in using as a reference the provided guide `Examples.ipynb`.
-2. Run the relevant script or notebook to generate visualizations or analyze data.
-3. Refer to the documentation (`./Resources/Report.pdf`) to understand how to interpret the results.
+```bash
+sh scripts/render/make_figure.sh          # the figure
+python scripts/render/make_animation.py   # the animation at the top
+```
 
-![Airflow Simulation Animation](Images/LLM_Efficiency_vs_TSR.png)
+Both need [ParaView](https://www.paraview.org/download/); the figure also needs LaTeX.
 
+## Cite
 
-## Contributions
+There is no paper for this solver. If it helps your work, please cite the repository:
 
-Contributions are welcome and encouraged! If you have ideas for improving simulations, adding new analysis tools, or enhancing educational resources, feel free to fork this repository and create a pull request. Please ensure your changes align with the project's goals.
+```bibtex
+@misc{martins_lifting_line,
+  author       = {Martins, Flavio A. C.},
+  title        = {Lifting-line solver for horizontal-axis wind-turbine rotors},
+  year         = {2023},
+  howpublished = {\url{https://github.com/EngFlavioMartins/lifting-line-solver}},
+  note         = {Software, Apache-2.0 licence}
+}
+```
 
-## License
+GitHub's **Cite this repository** button (from [CITATION.cff](CITATION.cff)) gives the same reference in other formats.
 
-This project is licensed under the [MIT License](LICENSE). You're free to use, modify, and distribute the code as long as you include the original license in your distribution.
+## Licence
 
----
-
-Happy exploring the world of aerodynamics! If you have any questions or suggestions, please don't hesitate to reach out to us.
+[Apache 2.0](LICENSE): you are free to use, change and share this code, also commercially. If you pass it on, keep the [NOTICE](NOTICE) file with it; it says where the code comes from and how to cite it.

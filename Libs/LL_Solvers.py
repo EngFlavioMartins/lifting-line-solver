@@ -98,3 +98,57 @@ def velocity_3D_from_vortex_filament(GAMMA, X1, X2, P, CORE):
 
 
 
+
+
+
+# ===================================================================
+# Vectorised induction (same physics and core treatment as above)
+# ===================================================================
+
+def ring_segments(ring):
+      """Start and end points (n_seg, 3) of every filament of a horseshoe ring, in the order
+      used by velocity_induced_single_ring: for each wake station, P1-P2, P2-P3, P3-P4, P4-P1."""
+      xyz1, xyz2 = np.asarray(ring.p1, float).T, np.asarray(ring.p2, float).T     # (n_pts, 3)
+      P1, P2, P3, P4 = xyz1[:-1], xyz2[:-1], xyz2[1:], xyz1[1:]
+      starts = np.stack([P1, P2, P3, P4], axis=1).reshape(-1, 3)
+      ends   = np.stack([P2, P3, P4, P1], axis=1).reshape(-1, 3)
+      return starts, ends
+
+
+def filament_velocities(P, X1, X2, CORE=1e-3):
+      """Velocity per unit circulation induced at points P (n, 3) by straight filaments X1 -> X2
+      (m, 3); returns (n, m, 3). Same formula and core clipping as velocity_3D_from_vortex_filament."""
+      r1 = P[:, None, :] - X1[None, :, :]
+      r2 = P[:, None, :] - X2[None, :, :]
+      R1 = np.sqrt(np.einsum("nmk,nmk->nm", r1, r1))
+      R2 = np.sqrt(np.einsum("nmk,nmk->nm", r2, r2))
+      cross = np.cross(r1, r2)
+      sq = np.einsum("nmk,nmk->nm", cross, cross)
+      r0 = (X2 - X1)[None, :, :]
+      R0R1 = np.einsum("nmk,nmk->nm", np.broadcast_to(r0, r1.shape), r1)
+      R0R2 = np.einsum("nmk,nmk->nm", np.broadcast_to(r0, r2.shape), r2)
+      # the scalar version clips with if / elif / elif: only the first matching condition applies
+      m1 = sq < CORE ** 2
+      m2 = ~m1 & (R1 < CORE)
+      m3 = ~m1 & ~m2 & (R2 < CORE)
+      sq = np.where(m1, CORE ** 2, sq)
+      R1 = np.where(m2, CORE, R1)
+      R2 = np.where(m3, CORE, R2)
+      K = (R0R1 / R1 - R0R2 / R2) / (4 * np.pi * sq)
+      return K[..., None] * cross
+
+
+def induction_matrices(bladepanels, trailingVortexes, chunk=16):
+      """Matrices (ncp, nrings) of the velocity components induced at each control point by
+      each ring at unit circulation. Equivalent to calling velocity_induced_single_ring for
+      every pair, but evaluated with NumPy in blocks of control points."""
+      cps = np.array([p.cp for p in bladepanels], float)
+      segs = [ring_segments(ring) for ring in trailingVortexes]
+      nseg = segs[0][0].shape[0]
+      X1 = np.concatenate([s for s, _ in segs])
+      X2 = np.concatenate([e for _, e in segs])
+      M = np.empty((len(cps), len(segs), 3))
+      for i in range(0, len(cps), chunk):
+            v = filament_velocities(cps[i:i + chunk], X1, X2)          # (c, nrings * nseg, 3)
+            M[i:i + chunk] = v.reshape(v.shape[0], len(segs), nseg, 3).sum(axis=2)
+      return M[..., 0], M[..., 1], M[..., 2]

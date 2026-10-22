@@ -1,7 +1,7 @@
 import numpy as np
 
 from Libs.LL_Solvers  import initializeVars
-from Libs.LL_Solvers  import velocity_induced_single_ring
+from Libs.LL_Solvers  import induction_matrices
 from Libs.LL_ConstructObjs import createAirfoils
 from Libs.LL_ConstructObjs import loadBladeElement
 
@@ -17,6 +17,7 @@ def liftingLineSolver(mySolutionVector, bladepanels, trailingVortexes, Uwind, Om
 
 
       polar_alpha, polar_cl, polar_cd = createAirfoils(airfoil)
+      polar_alpha, polar_cl, polar_cd = (np.asarray(x, float) for x in (polar_alpha, polar_cl, polar_cd))
 
       ncp  = len(bladepanels)      # Get number of control points
 
@@ -25,88 +26,51 @@ def liftingLineSolver(mySolutionVector, bladepanels, trailingVortexes, Uwind, Om
       ConvWeight  = 0.1
       GammaCrit =   0.005
 
-      # Initialize and calculate matrices for velocity induced by horseshoe vortex rings
-      MatrixU = np.zeros((ncp,ncp)) # Matrix of induction, for velocity component in x-direction
-      MatrixV = np.zeros((ncp,ncp)) # Matrix of induction, for velocity component in y-direction
-      MatrixW = np.zeros((ncp,ncp)) # Matrix of induction, for velocity component in z-direction
+      # Induction matrices: velocity at each control point due to each ring at unit circulation
+      MatrixU, MatrixV, MatrixW = induction_matrices(bladepanels, trailingVortexes)
 
       Gamma, a, aline, r_R, Fnorm, Ftan, Gamma, alpha, inflowAngle = initializeVars(ncp)
 
-      for i, ipanel in enumerate(bladepanels):
+      cps   = np.array([p.cp for p in bladepanels], float)                # (ncp, 3)
+      chord = np.array([p.chord for p in bladepanels], float)
+      twist = np.array([p.twist for p in bladepanels], float)
+      Vrot  = -np.cross([Omega, 0, 0], cps)                               # blade motion, seen from the blade
+      r     = np.sqrt(np.einsum("ij,ij->i", cps, cps))
+      azimdir = np.cross(np.stack([-1 / r, np.zeros_like(r), np.zeros_like(r)], axis=1), cps)
 
-            induced_velocity = np.zeros(3)
-
-            for j, jring in enumerate(trailingVortexes):
-
-                  jring.Gamma  = 1
-                  induced_velocity = velocity_induced_single_ring(jring, ipanel.cp)
-
-                  MatrixU[i,j] = induced_velocity[0]
-                  MatrixV[i,j] = induced_velocity[1]
-                  MatrixW[i,j] = induced_velocity[2]
+      # Every ring starts at unit circulation, as left by the induction loop of the original code
+      ringGamma = np.ones(ncp)
 
       ## Calculate solution through an iterative process
-      dGamma = np.zeros_like(Gamma)
-
       for kiter in range(Niterations):
 
-            for i, ipanel in enumerate(bladepanels):
+            u, v, w = MatrixU @ ringGamma, MatrixV @ ringGamma, MatrixW @ ringGamma
+            U = np.stack([Uwind + u + Vrot[:, 0], v + Vrot[:, 1], w + Vrot[:, 2]], axis=1)
+            Vazim  = np.einsum("ij,ij->i", azimdir, U)
+            Vaxial = U[:, 0]
 
-                  u, v, w = 0, 0, 0
+            Fnorm, Ftan, newGamma, alpha, inflowAngle = loadBladeElement(Vaxial, Vazim, polar_alpha, polar_cl,
+                                                                         polar_cd, chord, twist)
 
-                  for j, jring in enumerate(trailingVortexes):
+            ## Update variables:
+            a = -(u + Vrot[:, 0]) / Uwind
+            aline = np.ones(ncp) if Omega == 0 else U[:, 1] / (r * Omega) - 1   # ignore aline when not rotating
+            r_R = r / R
+            dGamma = newGamma - Gamma
 
-                        u += MatrixU[i,j] * jring.Gamma
-                        v += MatrixV[i,j] * jring.Gamma
-                        w += MatrixW[i,j] * jring.Gamma
-
-                  Vrot = - np.cross([Omega, 0, 0], ipanel.cp) # Wind, relatively to the blade
-
-                  # Wind speed, relatively to the blade:
-
-                  U = [Uwind + u + Vrot[0], 
-                               v + Vrot[1], 
-                               w + Vrot[2]]
- 
-                  r = np.sqrt( np.dot(ipanel.cp, ipanel.cp) )
-                  azimdir = np.cross([-1/r, 0, 0], ipanel.cp)
-                  Vazim   = np.dot(azimdir, U)
-                  Vaxial  = np.dot([1, 0, 0], U)
-
-                  #print('Vaxial:' + str(Vaxial) )
-                  #print('Vazim:' + str(Vazim) )
-
-                  temploads = loadBladeElement(Vaxial, Vazim, polar_alpha, polar_cl, polar_cd, ipanel.chord, ipanel.twist)
-
-
-                  ## Update variables:
-                  a[i] = -(u + Vrot[0]) / Uwind
-                  if Omega == 0: # avoid dividing by zero. Ignore aline, in this case
-                        aline[i] = 1
-                  else:
-                        aline[i] = U[1] / (r * Omega) - 1
-                  r_R[i]   = r / R
-                  Fnorm[i] = temploads[0]
-                  Ftan[i]  = temploads[1]
-                  alpha[i] = temploads[3]
-                  inflowAngle[i] = temploads[4]
-
-                  dGamma[i] = temploads[2] - Gamma[i] # difference in Gamma
-
-
-            ## Check the convergence:     
+            ## Check the convergence:
             top = np.max(np.abs(dGamma))
             bot = np.max(np.abs(Gamma)) + 1
             if top/bot < GammaCrit and kiter > 5:
-            #      print('Number of iterations: ' + str(kiter) )
-            #      print('Error: ' + str(top/bot) )
                   print("Done.")
                   break
 
             ## Set new estimate of circulation on vortex rings:
-            for j, jring in enumerate(trailingVortexes):
-                  jring.Gamma = Gamma[j] + ConvWeight * dGamma[j]
-                  Gamma[j] = jring.Gamma
+            ringGamma = Gamma + ConvWeight * dGamma
+            Gamma = ringGamma.copy()
+
+      for j, jring in enumerate(trailingVortexes):
+            jring.Gamma = ringGamma[j]
 
       mySolutionVector.a = a
       mySolutionVector.aline = aline
